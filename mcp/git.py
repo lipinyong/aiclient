@@ -2,9 +2,22 @@ import httpx
 import logging
 import yaml
 import os
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
+
+# 尝试加载 .env 文件（如果 dotenv 可用）
+try:
+    from dotenv import load_dotenv
+    # 加载项目根目录的 .env 文件
+    base_dir = Path(__file__).parent.parent
+    env_path = base_dir / '.env'
+    if env_path.exists():
+        load_dotenv(env_path, override=True)
+except ImportError:
+    # dotenv 不可用，跳过
+    pass
 
 
 import urllib.parse

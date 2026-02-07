@@ -7,12 +7,21 @@ import logging
 import uvicorn
 from fastapi import FastAPI
 from pathlib import Path
+from dotenv import load_dotenv
 
 from module.config_manager import ConfigManager
 from module.router import setup_routes
 from module.auth import AuthMiddleware
 from module.mcpserver import MCPServerManager
 from module.aiagent import AIAgent
+
+# 加载 .env 文件
+project_root = Path(__file__).parent
+env_path = project_root / '.env'
+if env_path.exists():
+    load_dotenv(env_path, override=True)
+    logger = logging.getLogger(__name__)
+    logger.info(f"已加载环境变量文件: {env_path}")
 
 # 配置日志
 logging.basicConfig(
