@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  ai-cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fastapi-ai-cli:latest
+    container_name: fastapi-ai-cli
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - RELOAD=false
+      - CONFIG_PATH=/app/config.yaml
+      # 从.env文件或环境变量中读取API密钥
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY:-}
+    volumes:
+      # 挂载配置文件（可选，如果不挂载则使用镜像内的默认配置）
+      - ./config.yaml:/app/config.yaml:ro
+      - ./git.yaml:/app/git.yaml:ro
+      # 挂载数据目录（持久化数据）
+      - ./data:/app/data
+      - ./reports:/app/reports
+      - ./chroma_data:/app/chroma_data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    networks:
+      - ai-cli-network
+
+networks:
+  ai-cli-network:
+    driver: bridge

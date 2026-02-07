@@ -1,0 +1,59 @@
+modules:
+  enabled:
+    - auth
+    - markdown
+    - aiagent
+
+ai:
+  provider: deepseek
+  providers:
+    deepseek:
+      base_url: https://api.deepseek.com
+      model: deepseek-chat
+      api_key: "${DEEPSEEK_API_KEY}"
+      temperature: 0.7
+      max_tokens: 8192
+    siliconflow:
+      base_url: https://api.siliconflow.cn/v1
+      model: deepseek-ai/DeepSeek-V3.2
+      api_key: "${SILICONFLOW_API_KEY}"
+      temperature: 0.7
+      max_tokens: 8192
+  temperature: 0.7
+  max_tokens: 8192
+  max_iterations: 100  # 工具调用最大迭代次数
+
+lubanlou:
+  env: dev
+  servers:
+    debug: https://dev.gvsun.com
+    dev: https://www.lubanlou.com
+  datasource: limsproduct
+  api:
+    get_report:
+      server: dev
+      path: /api/magic/AI_NODE/xmgl/getactivity
+    get_report_from_username:
+      server: dev
+      path: /api/magic/AI_NODE/xmgl/getactivityfromusername
+    get_report_from_day:
+      server: dev
+      path: /api/magic/AI_NODE/xmgl/getactivityfromday
+    add_person_weekly_report:
+      server: debug
+      path: /gvsunxmgl/openApi/activity/insertMyActivityWeek
+    get_day_meeting:
+      server: dev
+      path: /api/magic/AI_NODE/establishments/meeting
+
+logging:
+  level: INFO
+  file: logs/app.log
+
+mcp:
+  enabled: true
+  services_path: mcp
+
+chroma:
+  base_url: http://127.0.0.1:8000
+  api_key: "${CHROMA_API_KEY}"
