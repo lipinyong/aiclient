@@ -238,8 +238,16 @@ class GitConfig:
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             config_path = os.path.join(base_dir, "git.yaml")
             
+            if not os.path.exists(config_path):
+                logger.warning(f"git.yaml 文件不存在，请从 git.yaml.example 复制并配置")
+                return {}
+            
             with open(config_path, "r", encoding="utf-8") as f:
-                return yaml.safe_load(f)
+                config_content = f.read()
+                # 替换环境变量（类似 config.yaml 的处理方式）
+                for key, value in os.environ.items():
+                    config_content = config_content.replace(f'${{{key}}}', value)
+                return yaml.safe_load(config_content)
         except Exception as e:
             logger.error(f"加载git配置失败: {e}")
             return {}
