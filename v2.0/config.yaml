@@ -1,0 +1,48 @@
+# AI Client v2.0 配置
+
+ai:
+  provider: deepseek
+  providers:
+    deepseek:
+      base_url: https://api.deepseek.com
+      model: deepseek-chat
+      api_key: "${DEEPSEEK_API_KEY}"
+      temperature: 0.7
+      max_tokens: 8192
+      models:
+        - deepseek-chat
+        - deepseek-coder
+        - deepseek-reasoner
+    siliconflow:
+      base_url: https://api.siliconflow.cn/v1
+      model: deepseek-ai/DeepSeek-V3.2
+      api_key: "${SILICONFLOW_API_KEY}"
+      temperature: 0.7
+      max_tokens: 8192
+      models:
+        - deepseek-ai/DeepSeek-V3.2
+    openai:
+      base_url: https://api.openai.com/v1
+      model: gpt-4o
+      api_key: "${OPENAI_API_KEY}"
+      label: OpenAI
+      models:
+        - gpt-4o
+        - gpt-4o-mini
+        - gpt-4-turbo
+        - gpt-3.5-turbo
+        - o1
+        - o1-mini
+        - o3-mini
+  temperature: 0.7
+  max_tokens: 8192
+
+# Agent Skills 搜索路径（按顺序加载，后者可覆盖同名技能）
+# skills: 项目根下的 skills/ 目录（推荐部署）
+# project: 当前项目 .cursor/skills
+# personal: 用户目录 ~/.cursor/skills
+skills:
+  paths:
+    - skills
+    - project
+    - personal

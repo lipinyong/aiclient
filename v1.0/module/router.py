@@ -136,11 +136,14 @@ def setup_routes(app: FastAPI, config_manager):
     username: localStorage.getItem('username') || '',
     cname: localStorage.getItem('cname') || '',
     email: localStorage.getItem('email') || '',
-    phone: localStorage.getItem('phone') || '',
     access_token: localStorage.getItem('access_token') || '',
     external_token: localStorage.getItem('external_token') || '',
     domain: localStorage.getItem('domain') || ''
 }"""
+        ),
+        skills: Optional[list] = Body(
+            None,
+            description="按需启用的 MCP 能力（skill 名称列表），如 ['mail','data_processor','xmgl']。不传或空则使用全部能力。"
         )
     ):
         """发送DeepSeek AI聊天消息"""

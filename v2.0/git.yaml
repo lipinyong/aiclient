@@ -1,0 +1,47 @@
+# GitLab访问配置
+
+# GitLab服务器配置
+gitlab:
+  server: 192.168.1.139
+  port: 80
+
+# 仓库配置
+# 注意：令牌从环境变量读取，请配置 .env 文件
+repositories:
+  # 鲁班楼仓库
+  lubanlou:
+    project_id: 164 
+    project_name: lubanlou
+    description: 鲁班楼产品开发版本库
+    token: ${GITLAB_TOKEN_LUBANLOU}
+  
+  # 生产文档仓库
+  production_document:
+    project_id: 193
+    project_name: production_document
+    description: 在线值班记录问题版本库
+    token: ${GITLAB_TOKEN_PRODUCTION_DOCUMENT}
+
+  project_document:
+    project_id: 224
+    project_name: project_document
+    description: 项目实施问题版本库
+    token: ${GITLAB_TOKEN_PROJECT_DOCUMENT}
+
+  service_issues:
+    project_id: 228
+    project_name: service_issues
+    description: 管理服务问题版本库
+    token: ${GITLAB_TOKEN_SERVICE_ISSUES}
+
+  c_engineer:
+    project_id: 239
+    project_name: c_engineer
+    description: 总工办技术问题版本库
+    token: ${GITLAB_TOKEN_C_ENGINEER}
+  
+  gvsunscript:
+    project_id: 222
+    project_name: gvsunscript
+    description: 庚商脚本版本库
+    token: ${GITLAB_TOKEN_GVSUNSCRIPT}

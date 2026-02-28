@@ -34,7 +34,12 @@ async def handle(request: Request, config_manager):
     stream = body.get("stream", True)
     preprocess = body.get("preprocess", True)
     user_info = body.get("user_info", {})
-    
+
+    # 按需启用的 MCP 能力（skill 名称列表），不传或空则使用全部；若配置了 mcp.default_skills 则使用该默认
+    skills = body.get("skills")
+    if skills is None:
+        skills = config_manager.get("mcp", {}).get("default_skills")
+
     # 从请求中获取用户信息，包括email
     if not user_info:
         user_info = {}
@@ -68,12 +73,12 @@ async def handle(request: Request, config_manager):
     
     if stream:
         return EventSourceResponse(
-            stream_response(agent, prompt),
+            stream_response(agent, prompt, skills=skills),
             media_type="text/event-stream"
         )
     else:
         result = {"think": "", "say": "", "tool_calls": []}
-        async for chunk in agent.chat(prompt, stream=False):
+        async for chunk in agent.chat(prompt, stream=False, skills=skills):
             if chunk.get("type") == "complete":
                 result["think"] = chunk.get("think", "")
                 result["say"] = chunk.get("say", "")
@@ -83,8 +88,8 @@ async def handle(request: Request, config_manager):
         return result
 
 
-async def stream_response(agent: AIAgent, prompt: str) -> AsyncGenerator[dict, None]:
-    async for chunk in agent.chat(prompt, stream=True):
+async def stream_response(agent: AIAgent, prompt: str, skills=None) -> AsyncGenerator[dict, None]:
+    async for chunk in agent.chat(prompt, stream=True, skills=skills):
         yield {
             "event": chunk.get("type", "message"),
             "data": json.dumps(chunk, ensure_ascii=False)

@@ -103,16 +103,38 @@ class AIAgent:
         """获取 token 统计信息"""
         return self.token_stats.copy()
     
-    def get_tools(self) -> List[Dict[str, Any]]:
+    def get_tools(self, service_names: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+        """获取工具定义。当 service_names 指定时仅返回对应 skill 的工具（按需提交）。"""
         if not self.mcp_manager:
             return []
-        
+
+        # 工具名前缀 -> 服务名（用于按 skill 过滤）
+        # dataproc_* -> data_processor，其余服务前缀即服务名
+        prefix_to_service: Dict[str, str] = {}
+        for s in self.mcp_manager.services:
+            prefix_to_service[s] = s
+        for prefix, svc in self.SERVICE_ALIASES.items():
+            prefix_to_service[prefix] = svc
+
         tools = []
         for service_name, service in self.mcp_manager.services.items():
+            if service_names is not None and len(service_names) > 0 and service_name not in service_names:
+                continue
+            defs = []
             if hasattr(service.module, 'TOOL_DEFINITIONS'):
-                tools.extend(service.module.TOOL_DEFINITIONS)
+                defs = list(service.module.TOOL_DEFINITIONS)
             elif hasattr(service.module, 'get_tool_definitions'):
-                tools.extend(service.module.get_tool_definitions())
+                defs = list(service.module.get_tool_definitions())
+            for d in defs:
+                fn = d.get("function") or {}
+                name = fn.get("name") if isinstance(fn, dict) else None
+                if not name:
+                    tools.append(d)
+                    continue
+                prefix = name.split("_", 1)[0]
+                tool_service = prefix_to_service.get(prefix, prefix)
+                if service_names is None or len(service_names) == 0 or tool_service in service_names:
+                    tools.append(d)
         return tools
     
     # ============ [新增] 服务别名映射 ============
@@ -317,15 +339,15 @@ class AIAgent:
             truncated = result_json[:50000] + f"\n\n... [截断，错误: {str(e)}]"
             return {"success": False, "error": str(e), "data": truncated}
     
-    async def chat(self, prompt: str, stream: bool = True) -> AsyncGenerator[Dict[str, Any], None]:
+    async def chat(self, prompt: str, stream: bool = True, skills: Optional[List[str]] = None) -> AsyncGenerator[Dict[str, Any], None]:
         import time
         start_time = time.time()
         try:
             if stream:
-                async for chunk in self._stream_chat_with_tools(prompt):
+                async for chunk in self._stream_chat_with_tools(prompt, skills=skills):
                     yield chunk
             else:
-                result = await self._sync_chat_with_tools(prompt)
+                result = await self._sync_chat_with_tools(prompt, skills=skills)
                 yield result
         except Exception as e:
             logger.error(f"AI聊天错误: {e}", exc_info=True)
@@ -334,7 +356,7 @@ class AIAgent:
             self.token_stats["total_tokens"] = self.token_stats["prompt_tokens"] + self.token_stats["completion_tokens"]
             yield {"type": "error", "content": str(e), "token_stats": self.token_stats.copy()}
     
-    async def _stream_chat_with_tools(self, prompt: str) -> AsyncGenerator[Dict[str, Any], None]:
+    async def _stream_chat_with_tools(self, prompt: str, skills: Optional[List[str]] = None) -> AsyncGenerator[Dict[str, Any], None]:
         # 重置 token 统计
         self.reset_token_stats(prompt)
         
@@ -367,7 +389,7 @@ class AIAgent:
             {"role": "user", "content": cleaned_prompt}
         ]
         
-        tools = self.get_tools()
+        tools = self.get_tools(service_names=skills)
         max_iterations = self.max_iterations  # 从配置读取
         iteration = 0
         
@@ -657,10 +679,10 @@ class AIAgent:
                     self.token_stats["elapsed_seconds"] = time.time() - self.token_stats.get("start_time", time.time())
                     yield {"type": "complete", "think": "", "say": "（已达到最大工具调用次数）", "token_stats": self.token_stats.copy()}
     
-    async def _sync_chat_with_tools(self, prompt: str) -> Dict[str, Any]:
+    async def _sync_chat_with_tools(self, prompt: str, skills: Optional[List[str]] = None) -> Dict[str, Any]:
         result = {"type": "complete", "think": "", "say": "", "tool_calls": []}
-        
-        async for chunk in self._stream_chat_with_tools(prompt):
+
+        async for chunk in self._stream_chat_with_tools(prompt, skills=skills):
             if chunk.get("type") == "tool_call":
                 result["tool_calls"].append({
                     "name": chunk.get("tool_name"),

@@ -66,7 +66,7 @@ def print_colored(text: str, color: str = "default"):
 
 
 async def chat_stream(agent: AIAgent, preprocessor: PromptPreprocessor, prompt: str, 
-                      typewriter: bool = True, delay: float = 0.02, preprocess: bool = True, quiet: bool = False, show_answer_tag: bool = False):
+                      typewriter: bool = True, delay: float = 0.02, preprocess: bool = True, quiet: bool = False, show_answer_tag: bool = False, skills=None):
     original_prompt = prompt  # 保存原始提问
     
     if not quiet:
@@ -84,7 +84,7 @@ async def chat_stream(agent: AIAgent, preprocessor: PromptPreprocessor, prompt: 
     token_stats = None  # 保存 token 统计
     
     try:
-        async for chunk in agent.chat(prompt, stream=True):
+        async for chunk in agent.chat(prompt, stream=True, skills=skills):
             msg_type = chunk.get("type", "")
             content = chunk.get("content", "")
             
@@ -182,8 +182,8 @@ async def chat_stream(agent: AIAgent, preprocessor: PromptPreprocessor, prompt: 
             print_colored("\n[中断] 用户取消", "yellow")
 
 
-async def interactive_mode(agent: AIAgent, preprocessor: PromptPreprocessor, 
-                           typewriter: bool = True, delay: float = 0.02, quiet: bool = False):
+async def interactive_mode(agent: AIAgent, preprocessor: PromptPreprocessor,
+                           typewriter: bool = True, delay: float = 0.02, quiet: bool = False, skills=None):
     if not quiet:
         print_colored("=" * 60, "cyan")
         print_colored("  AI 聊天命令行工具 (本地模式)", "cyan")
@@ -205,7 +205,7 @@ async def interactive_mode(agent: AIAgent, preprocessor: PromptPreprocessor,
                     print_colored("再见！", "green")
                 break
             
-            await chat_stream(agent, preprocessor, prompt, typewriter, delay, quiet=quiet, show_answer_tag=True)
+            await chat_stream(agent, preprocessor, prompt, typewriter, delay, quiet=quiet, show_answer_tag=True, skills=skills)
             
         except KeyboardInterrupt:
             if not quiet:
@@ -228,7 +228,9 @@ async def async_main():
     # [新增] 热加载相关参数
     parser.add_argument("--hot-reload", action="store_true", help="启用MCP服务热加载")
     parser.add_argument("--hot-reload-interval", type=float, default=2.0, help="热加载检查间隔（秒），默认2秒")
-    
+
+    parser.add_argument("--skills", type=str, default=None, help="按需启用的 MCP 能力（逗号分隔），如 mail,data_processor,xmgl；不传则使用全部")
+
     args = parser.parse_args()
     
     # 根据debug参数设置日志级别
@@ -293,7 +295,10 @@ async def async_main():
     
     agent = AIAgent(ai_config, mcp_manager)
     preprocessor = PromptPreprocessor(config.get('web', {}).get('root', 'web'))
-    
+    skills_list = [s.strip() for s in args.skills.split(",") if s.strip()] if args.skills else None
+    if skills_list and not args.quiet:
+        print(f"按需启用 skill: {', '.join(skills_list)}")
+
     typewriter = not args.no_typewriter
     preprocess = not args.no_preprocess
     
@@ -306,7 +311,7 @@ async def async_main():
         
         while retry_count <= max_retries:
             error_occurred = False
-            async for chunk in agent.chat(current_prompt if retry_count == 0 else "继续处理", stream=True):
+            async for chunk in agent.chat(current_prompt if retry_count == 0 else "继续处理", stream=True, skills=skills_list):
                 msg_type = chunk.get("type", "")
                 content = chunk.get("content", "")
                 
@@ -349,7 +354,7 @@ async def async_main():
         print()  # 最终换行
     else:
         # 交互模式下，静默模式仍然显示[回答]标签
-        await interactive_mode(agent, preprocessor, typewriter, args.delay, args.quiet)
+        await interactive_mode(agent, preprocessor, typewriter, args.delay, args.quiet, skills=skills_list)
 
 
 def main():
