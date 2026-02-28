@@ -75,7 +75,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "ssh_run",
-            "description": "在指定 SSH 主机上执行一条命令。用于连接远程、执行命令、采集系统信息（如 uptime、free、df、top 等）并进行分析。用户提供主机、账号、密码时，应直接调用本工具执行并依据返回结果作答。",
+            "description": "在指定 SSH 主机上执行一条命令。用于连接远程、执行命令、采集系统信息（如 uptime、free、df、systemctl 等）并进行分析。用户在本轮消息中提供的主机、账号、密码必须用于本次调用，不可使用历史中其他主机；每次用户给出新的 host/user/password 时都要用该消息中的参数重新调用本工具。",
             "parameters": {
                 "type": "object",
                 "properties": {

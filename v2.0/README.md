@@ -77,10 +77,14 @@ triggers: [关键词1, 关键词2, 英文关键词]   # 可选，用户输入包
 
 | 技能名 | 说明 |
 |--------|------|
-| `example-skill` | 示例格式与回复模板，用户说「举例」「示例」时可用 |
 | `commit-message` | 按约定式提交规范生成 Git 提交信息，用户提供变更描述或 diff 时使用 |
 | `shell` | 生成或解释本地 Shell 命令（PowerShell/bash），执行脚本、目录、环境变量等 |
 | `ssh` | 生成或解释 SSH/SCP/SFTP 命令与配置，远程连接、传文件、密钥、跳板机 |
+| `pdf-reader` | 读取本地 PDF 并抽取文本，生成摘要/问答（需先调用 pdf_read） |
+| `image-ocr` | 对本地图片做 OCR 文字识别（中英文等），提取图中文字 |
+| `skill-creator` | 在线创建/管理技能：根据描述生成新技能、列出/删除技能、从本地目录或 GitHub 安装技能 |
+| `lubanlou` | 连接 lubanlou.com 接口采集信息：OAuth2 登录获取 token，再调用业务 API |
+| `browser` | 在系统默认浏览器中打开指定 URL / 链接 |
 
 使用示例：不指定 `--skills` 时，问「帮我写提交说明」会自动启用 `commit-message`；问「用 ssh 连接服务器」会自动启用 `ssh`。回答结束后会打印本次使用的技能名。
 

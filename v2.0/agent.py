@@ -146,8 +146,19 @@ class AIClient:
         skill_names = [s["name"] for s in skills]
         if "ssh" in skill_names:
             base += "\n\n当用户要求连接 SSH、在远程执行命令或分析系统时，你必须直接调用 ssh_run 工具执行，并根据工具返回的结果进行分析总结、给出结论；不要只给操作建议或命令示例。"
+            base += "\n【重要】每次用户在本轮消息中提供了新的主机 IP、账号或密码时，必须针对本轮给出的主机重新调用 ssh_run，不得沿用上一轮或其他主机的执行结果；回答开头须明确标注「以下为主机 <用户给出的IP> 的检查结果」。"
         if "shell" in skill_names:
             base += "\n\n当用户要求在本地执行命令、查看目录、查进程或跑脚本时，你必须直接调用 run_shell 工具执行，并根据返回结果回答；Windows 下用 PowerShell 或 CMD，Linux/macOS 下用 bash。"
+        if "pdf-reader" in skill_names:
+            base += "\n\n当用户提供本地 PDF 路径并要求摘要/问答/提取信息时，你必须先调用 pdf_read 抽取文本；若返回 chunk_ids，必须把所有 chunk 通过 pdf_get_chunk 取回后再生成最终摘要/结论；不要在未读取文档内容时直接编造摘要。"
+        if "image-ocr" in skill_names:
+            base += "\n\n当用户提供本地图片路径并要求识别图中文字、提取文字或翻译图中内容时，你必须先调用 ocr_run 对图片做 OCR，再根据返回的 text 和 details 作答；不要未识别就编造图中文字。"
+        if "skill-creator" in skill_names:
+            base += "\n\n当用户要求创建技能、管理技能、列出/删除技能、从本地目录或 GitHub 安装技能时，你必须调用 skill_list / skill_create / skill_delete / skill_install_path / skill_install_github / skill_get_info 等工具完成操作；创建技能时根据用户需求生成完整的 SKILL.md 正文与触发词，并告知用户新技能名与用法。"
+        if "lubanlou" in skill_names:
+            base += "\n\n当用户需要从鲁班楼（lubanlou.com）采集或查询信息时，你必须先调用 lubanlou_login 获取 token（若用户提供账号密码则传入），再使用 lubanlou_request 调用相应 API 路径；若返回 401 或提示 token 失效，需重新登录后再请求。"
+        if "browser" in skill_names:
+            base += "\n\n【网页抓取】当用户要求读取、抓取某 URL 的网页内容时，你必须且只能调用 browser_fetch_content 工具（传入该 URL），禁止使用 run_script、run_shell 或任何自写脚本。browser_fetch_content 返回后，回复中**只展示抓取到的内容**：可对 content 做分段、排版、整理，但**不要**做内容特点分析、要点归纳、评价或其它解读，仅输出整理后的抓取信息本身，不添加「该页面特点」「从内容可以看出」等分析性表述。在浏览器中打开链接时用 browser_open。"
         ctx = get_skills_context(skills)
         if ctx:
             base += "\n\n" + ctx
@@ -187,6 +198,8 @@ class AIClient:
         messages.append({"role": "user", "content": prompt})
         start = time.time()
         loop = asyncio.get_event_loop()
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
         try:
             iteration = 0
             while iteration < MAX_TOOL_ITERATIONS:
@@ -204,9 +217,12 @@ class AIClient:
                 stream_resp = await self.client.chat.completions.create(**api_kw)
                 collected = ""
                 tool_calls_collected = {}
+                usage_from_stream = None
                 async for chunk in stream_resp:
                     if not chunk.choices:
                         continue
+                    if getattr(chunk, "usage", None) is not None:
+                        usage_from_stream = chunk.usage
                     delta = chunk.choices[0].delta
                     if delta.content:
                         collected += delta.content
@@ -223,8 +239,19 @@ class AIClient:
                                     tool_calls_collected[idx]["name"] = tc.function.name
                                 if tc.function.arguments:
                                     tool_calls_collected[idx]["arguments"] += tc.function.arguments or ""
+                if usage_from_stream:
+                    total_prompt_tokens += getattr(usage_from_stream, "prompt_tokens", 0) or 0
+                    total_completion_tokens += getattr(usage_from_stream, "completion_tokens", 0) or 0
                 if not tool_calls_collected:
-                    yield {"type": "complete", "say": collected, "elapsed_seconds": time.time() - start, "skills_used": skills_used}
+                    yield {
+                        "type": "complete",
+                        "say": collected,
+                        "elapsed_seconds": time.time() - start,
+                        "skills_used": skills_used,
+                        "prompt_tokens": total_prompt_tokens,
+                        "completion_tokens": total_completion_tokens,
+                        "total_tokens": total_prompt_tokens + total_completion_tokens,
+                    }
                     return
                 tool_calls_list = []
                 for idx in sorted(tool_calls_collected.keys()):
@@ -242,9 +269,25 @@ class AIClient:
                     yield {"type": "tool_result", "tool_name": name, "result": result}
                     messages.append({"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result, ensure_ascii=False)})
                 collected = ""
-            yield {"type": "complete", "say": collected, "elapsed_seconds": time.time() - start, "skills_used": skills_used}
+            yield {
+                "type": "complete",
+                "say": collected,
+                "elapsed_seconds": time.time() - start,
+                "skills_used": skills_used,
+                "prompt_tokens": total_prompt_tokens,
+                "completion_tokens": total_completion_tokens,
+                "total_tokens": total_prompt_tokens + total_completion_tokens,
+            }
         except Exception as e:
             logger.exception("chat error")
-            yield {"type": "error", "content": str(e), "elapsed_seconds": time.time() - start, "skills_used": skills_used}
+            yield {
+                "type": "error",
+                "content": str(e),
+                "elapsed_seconds": time.time() - start,
+                "skills_used": skills_used,
+                "prompt_tokens": total_prompt_tokens,
+                "completion_tokens": total_completion_tokens,
+                "total_tokens": total_prompt_tokens + total_completion_tokens,
+            }
         finally:
             self._tool_executors = {}
